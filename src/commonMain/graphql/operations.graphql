@@ -1,0 +1,25 @@
+query GetHome {
+    home {
+        ...timelineDetails
+    }
+}
+
+query GetBookmarks {
+    bookmarks {
+        ...timelineDetails
+    }
+}
+
+fragment timelineDetails on Timeline {
+    entries {
+        content {
+            ... on Post {
+                body
+            }
+            ... on User {
+                avatar
+                name
+            }
+        }
+    }
+}

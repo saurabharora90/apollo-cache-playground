@@ -1,0 +1,25 @@
+type Query {
+    home: Timeline
+    bookmarks: Timeline
+}
+
+type Timeline  {
+    entries: [Entry]!
+}
+
+type Entry @typePolicy(keyFields: "id") {
+    id: ID!
+    content: Content!
+}
+union Content = Post | User
+
+type Post @typePolicy(keyFields: "id") {
+    id: ID!
+    body: String!
+}
+
+type User @typePolicy(keyFields: "id") {
+    id: ID!
+    avatar: String
+    name: String!
+}
