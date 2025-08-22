@@ -14,7 +14,7 @@ kotlin {
   sourceSets {
     getByName("commonMain") {
       dependencies {
-        implementation("com.apollographql.cache:normalized-cache-sqlite:1.0.0-alpha.3")
+        implementation("com.apollographql.cache:normalized-cache-sqlite:1.0.0-alpha.5")
         implementation("com.apollographql.apollo:apollo-runtime:4.3.0")
       }
     }

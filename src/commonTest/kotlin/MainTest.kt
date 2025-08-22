@@ -14,6 +14,7 @@ import com.apollographql.cache.normalized.fetchFromCache
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.memory.MemoryCacheFactory
 import com.apollographql.cache.normalized.normalizedCache
+import com.apollographql.cache.normalized.options.allowCachedPartialResults
 import com.apollographql.cache.normalized.refetchPolicy
 import com.apollographql.cache.normalized.watch
 import com.apollographql.mockserver.MockServer
@@ -80,7 +81,7 @@ class MainTest {
 
                     apolloClient.query(GetBookmarksQuery())
                         .fetchPolicy(FetchPolicy.CacheOnly)
-                        .refetchPolicy(FetchPolicy.CacheOnly)
+                        .allowCachedPartialResults(true)
                         .watch()
                         .test {
 
