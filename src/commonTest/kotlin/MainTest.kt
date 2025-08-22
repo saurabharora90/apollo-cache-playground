@@ -1,28 +1,19 @@
 import app.cash.turbine.test
 import com.apollographql.apollo.ApolloClient
-import com.apollographql.apollo.api.ApolloRequest
-import com.apollographql.apollo.api.ApolloResponse
-import com.apollographql.apollo.api.Operation
-import com.apollographql.apollo.interceptor.ApolloInterceptor
-import com.apollographql.apollo.interceptor.ApolloInterceptorChain
 import com.apollographql.cache.normalized.CacheManager
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.api.CacheKey
 import com.apollographql.cache.normalized.api.TypePolicyCacheKeyGenerator
 import com.apollographql.cache.normalized.apolloStore
-import com.apollographql.cache.normalized.fetchFromCache
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.memory.MemoryCacheFactory
 import com.apollographql.cache.normalized.normalizedCache
 import com.apollographql.cache.normalized.options.allowCachedPartialResults
-import com.apollographql.cache.normalized.refetchPolicy
 import com.apollographql.cache.normalized.watch
 import com.apollographql.mockserver.MockServer
 import com.apollographql.mockserver.enqueueString
 import com.example.GetBookmarksQuery
 import com.example.cache.Cache
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okio.use
@@ -97,7 +88,6 @@ class MainTest {
                             )
 
 
-
                             // Remove the "42" post
                             apolloClient.apolloStore.remove(CacheKey("Post", "42"))
                             apolloClient.apolloStore.publish(CacheManager.ALL_KEYS)
@@ -110,19 +100,5 @@ class MainTest {
                         }
                 }
         }
-    }
-}
-
-val PartialCacheOnlyInterceptor = object : ApolloInterceptor {
-    override fun <D : Operation.Data> intercept(
-        request: ApolloRequest<D>,
-        chain: ApolloInterceptorChain
-    ): Flow<ApolloResponse<D>> {
-        return chain.proceed(
-            request = request
-                .newBuilder()
-                .fetchFromCache(true)
-                .build()
-        )
     }
 }
