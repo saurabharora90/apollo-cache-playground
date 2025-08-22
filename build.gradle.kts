@@ -22,6 +22,8 @@ kotlin {
       dependencies {
         implementation("com.apollographql.mockserver:apollo-mockserver:0.1.1")
         implementation("org.jetbrains.kotlin:kotlin-test")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+        implementation("app.cash.turbine:turbine:1.2.1")
       }
     }
   }

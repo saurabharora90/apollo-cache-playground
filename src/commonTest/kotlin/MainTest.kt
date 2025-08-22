@@ -1,33 +1,36 @@
+import app.cash.turbine.test
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloRequest
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.interceptor.ApolloInterceptor
 import com.apollographql.apollo.interceptor.ApolloInterceptorChain
+import com.apollographql.cache.normalized.CacheManager
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.api.CacheKey
 import com.apollographql.cache.normalized.api.TypePolicyCacheKeyGenerator
 import com.apollographql.cache.normalized.apolloStore
 import com.apollographql.cache.normalized.fetchFromCache
 import com.apollographql.cache.normalized.fetchPolicy
-import com.apollographql.cache.normalized.fetchPolicyInterceptor
 import com.apollographql.cache.normalized.memory.MemoryCacheFactory
 import com.apollographql.cache.normalized.normalizedCache
+import com.apollographql.cache.normalized.refetchPolicy
+import com.apollographql.cache.normalized.watch
 import com.apollographql.mockserver.MockServer
 import com.apollographql.mockserver.enqueueString
 import com.example.GetBookmarksQuery
-import com.example.GetHomeQuery
 import com.example.cache.Cache
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.single
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import okio.use
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class MainTest {
-  // language=json
-  val home = """
+    // language=json
+    val home = """
     {
       "data": {
         "home": {
@@ -41,8 +44,8 @@ class MainTest {
     }
   """.trimIndent()
 
-  // language=json
-  val bookmarks = """
+    // language=json
+    val bookmarksResponse = """
     {
       "data": {
         "bookmarks": {
@@ -57,51 +60,68 @@ class MainTest {
   """.trimIndent()
 
 
-  var debug: Any? = null
+    var debug: Any? = null
 
-  @Test
-  fun test() = runBlocking {
-    MockServer().use { mockServer ->
-      ApolloClient.Builder()
-        .normalizedCache(MemoryCacheFactory(), TypePolicyCacheKeyGenerator(Cache.typePolicies))
-        .serverUrl(mockServer.url())
-        .build()
-        .use {apolloClient ->
+    @Test
+    fun test() = runTest {
+        MockServer().use { mockServer ->
+            ApolloClient.Builder()
+                .normalizedCache(
+                    MemoryCacheFactory(),
+                    TypePolicyCacheKeyGenerator(Cache.typePolicies)
+                )
+                .dispatcher(UnconfinedTestDispatcher(testScheduler))
+                .serverUrl(mockServer.url())
+                .build()
+                .use { apolloClient ->
 //          mockServer.enqueueString(home)
 //          val home = apolloClient.query(GetHomeQuery()).execute()
 
-          mockServer.enqueueString(bookmarks)
-          var bookmarks = apolloClient.query(GetBookmarksQuery()).fetchPolicy(FetchPolicy.NetworkOnly).execute()
-          debug = bookmarks
-          assertEquals(
-            true,
-            bookmarks.data?.bookmarks?.timelineDetails?.entries?.any { it?.content?.onPost?.id == "42" },
-          )
 
-          debug = apolloClient.apolloStore.dump()
-          // Remove the "42" post
-          apolloClient.apolloStore.remove(CacheKey("Post", "42"))
+                    apolloClient.query(GetBookmarksQuery())
+                        .fetchPolicy(FetchPolicy.CacheOnly)
+                        .refetchPolicy(FetchPolicy.CacheOnly)
+                        .watch()
+                        .test {
 
-          debug = apolloClient.apolloStore.dump()
-          bookmarks = apolloClient.query(GetBookmarksQuery()).fetchPolicyInterceptor(PartialCacheOnlyInterceptor).toFlow().single()
-          debug = bookmarks
+                            mockServer.enqueueString(bookmarksResponse)
+                            apolloClient.query(GetBookmarksQuery())
+                                .fetchPolicy(FetchPolicy.NetworkOnly)
+                                .execute()
 
-          assertEquals(
-            false,
-            bookmarks.data?.bookmarks?.timelineDetails?.entries?.any { it?.content?.onPost?.id == "42" },
-          )
+                            val item = expectMostRecentItem()
+                            assertEquals(
+                                true,
+                                item.data?.bookmarks?.timelineDetails?.entries?.any { it?.content?.onPost?.id == "42" },
+                            )
+
+
+
+                            // Remove the "42" post
+                            apolloClient.apolloStore.remove(CacheKey("Post", "42"))
+                            apolloClient.apolloStore.publish(CacheManager.ALL_KEYS)
+
+                            val nextItem = expectMostRecentItem()
+                            assertEquals(
+                                false,
+                                nextItem.data?.bookmarks?.timelineDetails?.entries?.any { it?.content?.onPost?.id == "42" },
+                            )
+                        }
+                }
         }
     }
-  }
 }
 
 val PartialCacheOnlyInterceptor = object : ApolloInterceptor {
-  override fun <D : Operation.Data> intercept(request: ApolloRequest<D>, chain: ApolloInterceptorChain): Flow<ApolloResponse<D>> {
-    return chain.proceed(
-      request = request
-        .newBuilder()
-        .fetchFromCache(true)
-        .build()
-    )
-  }
+    override fun <D : Operation.Data> intercept(
+        request: ApolloRequest<D>,
+        chain: ApolloInterceptorChain
+    ): Flow<ApolloResponse<D>> {
+        return chain.proceed(
+            request = request
+                .newBuilder()
+                .fetchFromCache(true)
+                .build()
+        )
+    }
 }
